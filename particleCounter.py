@@ -26,9 +26,27 @@ MIN_DIAMETER = 0.03    #um
 BLURRING = 30
 imageAuto = True
 
+imageArea = False
+#(0,0) coordinates is the left-upper corner
+#left X point
+startX = 0
+#upper Y point
+startY = 0
+#right X point --> width+startX
+width = 800
+#lower Y point --> height+startY
+height = 800
+
+def cropImage(imagea):
+    boxarea = (startX, startY, width, height)
+    imagea = imagea.crop(boxarea)
+    return imagea
+
 
 def treat_image_auto():
     imagea = Image.open(FILEPATH)
+    if imageArea:
+        imagea = cropImage(imagea)
 
     original_gray = np.asarray(imagea.convert('L'), dtype=float)
     blurred = ndi.gaussian_filter(original_gray, BLURRING)
@@ -73,6 +91,8 @@ def treat_image_ImageJ():
         3. Invert
     """
     imagea = Image.open(FILEPATH)
+    if imageArea:
+        imagea = cropImage(imagea)
 
     original_gray = (np.asarray(imagea, dtype=float))
     blurred = ndi.gaussian_filter(original_gray, BLURRING)
@@ -179,8 +199,13 @@ def calculate_median(histogram_particle_diameters):
 
 #Calculate the nanoparticle density in the full image
 def calculate_density(numparticles):
-    width, height = Image.open(FILEPATH).size
-    totalpixelarea = width*height
+    pixelwidth, pixelheight = Image.open(FILEPATH).size
+    if imageArea:
+        imagea = cropImage(Image.open(FILEPATH))
+        pixelwidth, pixelheight = imagea.size
+
+    totalpixelarea = pixelwidth*pixelheight
+    print 'pixelarea: ', totalpixelarea
     totalareaum = totalpixelarea*PIXEL_AREA
     totalareacm = totalareaum/1e8
     densityum = numparticles/totalareaum
@@ -213,6 +238,5 @@ if __name__ == '__main__':
     #Call function to create histogram figure
     create_histogram_plot(histogram_particle_diameters)
 
-    #TODO: counting in specific areas
     #TODO: make an approximated profile surface image (3D) from NPs (substrate->flat)
 
