@@ -27,8 +27,8 @@ BLURRING = 30
 imageAuto = True
 
 
-def treat_image_auto(image_path, pixel_size):
-    imagea = Image.open(image_path)
+def treat_image_auto():
+    imagea = Image.open(FILEPATH)
 
     original_gray = np.asarray(imagea.convert('L'), dtype=float)
     blurred = ndi.gaussian_filter(original_gray, BLURRING)
@@ -44,7 +44,7 @@ def treat_image_auto(image_path, pixel_size):
     for particle_index in range(count):
         num_pixels = (labels == particle_index).sum()
         print 'num_pixels: ', num_pixels
-        area = num_pixels * pixel_size
+        area = num_pixels * PIXEL_AREA
         p_diameter = 2 * np.sqrt(area / np.pi)
         print 'diameter: ', p_diameter
         if p_diameter > MAX_DIAMETER:
@@ -66,13 +66,13 @@ def treat_image_auto(image_path, pixel_size):
     return count, labels, particle_diameters
 
 
-def treat_image_ImageJ(image_path, pixel_size):
+def treat_image_ImageJ():
     """Function to count particles from images treated like this in ImageJ:
         1. Make binary
         2. Gaussian blur
         3. Invert
     """
-    imagea = Image.open(image_path)
+    imagea = Image.open(FILEPATH)
 
     original_gray = (np.asarray(imagea, dtype=float))
     blurred = ndi.gaussian_filter(original_gray, BLURRING)
@@ -90,7 +90,7 @@ def treat_image_ImageJ(image_path, pixel_size):
     for particle_index in range(count):
         num_pixels = (labels == particle_index).sum()
         print 'num_pixels: ', num_pixels
-        area = num_pixels * pixel_size
+        area = num_pixels * PIXEL_AREA
         p_diameter = 2 * np.sqrt(area / np.pi)
         print 'diameter: ', p_diameter
         if p_diameter > MAX_DIAMETER:
@@ -166,24 +166,37 @@ def create_textfile_diameters(particle_diameters):
     textfile.write("diameters: %s" % particle_diameters)
     textfile.close()
 
-
 # Calculate median size of the particles
 def calculate_median(histogram_particle_diameters):
     median_size = np.median(histogram_particle_diameters)
     mean_size = np.mean(histogram_particle_diameters)
+    desv_size = np.std(histogram_particle_diameters)
     #NOTE: Area calculated for spherical particles
     mean_area = 3.141592 * (mean_size / 2) ** 2
-    print '{0} um median size'.format(median_size)
-    print '{0} um mean size'.format(mean_size)
-    print '{0} um mean area'.format(mean_area)
+    print '%.3g um median size' % median_size
+    print '%.3g +- %.3g um mean size' % (mean_size, desv_size)
+    print '%.3g um mean area' % mean_area
+
+#Calculate the nanoparticle density in the full image
+def calculate_density(numparticles):
+    width, height = Image.open(FILEPATH).size
+    totalpixelarea = width*height
+    totalareaum = totalpixelarea*PIXEL_AREA
+    totalareacm = totalareaum/1e8
+    densityum = numparticles/totalareaum
+    densitycm = numparticles/totalareacm
+
+    print 'numparticles: ', numparticles
+    print '%.4g particles/um2' % densityum
+    print '%.4g particles/cm2' % densitycm
 
 
 if __name__ == '__main__':
     histogram_particle_diameters = []
     if imageAuto:
-        num_particles, labeled_image, particle_diameters = treat_image_auto(FILEPATH, PIXEL_AREA)
+        num_particles, labeled_image, particle_diameters = treat_image_auto()
     else:
-        num_particles, labeled_image, particle_diameters = treat_image_ImageJ(FILEPATH, PIXEL_AREA)
+        num_particles, labeled_image, particle_diameters = treat_image_ImageJ()
 
     histogram_particle_diameters.extend(particle_diameters)
 
@@ -193,13 +206,13 @@ if __name__ == '__main__':
     #Create textfile with diameters list
     create_textfile_diameters(particle_diameters)
 
-    #Calculate median size of the particles
+    #Calculate size of the particles and the density
     calculate_median(histogram_particle_diameters)
+    calculate_density(num_particles)
 
     #Call function to create histogram figure
     create_histogram_plot(histogram_particle_diameters)
 
-    #TODO: calculate density in global image
-    #TODO: calculate density in specific areas
+    #TODO: counting in specific areas
     #TODO: make an approximated profile surface image (3D) from NPs (substrate->flat)
 
