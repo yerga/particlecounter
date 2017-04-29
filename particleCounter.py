@@ -6,63 +6,108 @@ from skimage.filters import threshold_otsu
 from scipy import ndimage as ndi
 from skimage.feature import peak_local_max
 import os
+from PIL import Image
 
 SEGMENTFILENAME = 'segmented.pdf'
 FILEPATH = os.path.abspath('example2.tif')
-SEM_SCALE = 0.0228  # um per pixel
+SEM_SCALE = 0.005  # um per pixel
+SEM_SCALE = 0.0227794
 PIXEL_AREA = SEM_SCALE ** 2
 HISTOGRAM_FILENAME = 'histogram.pdf'
 histogram_path = 'size_distribution'
 histogram_title = 'Histogram'
-histogram_width = 8
+histogram_width = 4
 histogram_height = 4
 histogram_binwidth = 0.025
-histogram_xlimmax = 2.0
+histogram_xlimmax = 0.5
+MULTIPLIER = 3.2
+MAX_DIAMETER = 0.6     #um
+MIN_DIAMETER = 0.03    #um
+BLURRING = 30
+imageAuto = True
 
 
-def treat_image(image_path, pixel_size):
-    from PIL import Image
+def treat_image_auto(image_path, pixel_size):
     imagea = Image.open(image_path)
-    multiplier = 3.2
 
     original_gray = np.asarray(imagea.convert('L'), dtype=float)
-    blurred = ndi.gaussian_filter(original_gray, 30)
-    difference = original_gray - (multiplier * blurred)
+    blurred = ndi.gaussian_filter(original_gray, BLURRING)
+    difference = original_gray - (MULTIPLIER * blurred)
     threshold = original_gray >= threshold_otsu(original_gray)
     imagetolabel = ((difference > threshold) * 255).astype('uint8')
-    # print max(imagetolabel)
-    # return
 
     local_maxi = peak_local_max(imagetolabel, indices=False, footprint=np.ones([21, 21]), labels=threshold)
     labels, count = ndi.label(local_maxi)
 
-    #labels = morphology.watershed(-imagetolabel, markers, mask=threshold)
-
-    #labelarray, particle_count = ndi.label(imagetolabel)
-    # plt.imshow(local_maxi)
-    # plt.show()
-    # return
-
-    #count = np.max(labels)
-    # print (labels == 1)
-    # #print type(labels)
-    # return
-    # return
-
-    #TODO: max diameter and min diameter
+    remove_index = []
     particle_diameters = []
     for particle_index in range(count):
         num_pixels = (labels == particle_index).sum()
-        print num_pixels
+        print 'num_pixels: ', num_pixels
         area = num_pixels * pixel_size
         p_diameter = 2 * np.sqrt(area / np.pi)
-        if p_diameter > 0.05:
-            if p_diameter < 300:
-                particle_diameters.append(p_diameter)
+        print 'diameter: ', p_diameter
+        if p_diameter > MAX_DIAMETER:
+            print 'not counting (high size): ', particle_index
+            remove_index.append(particle_index)
+        elif p_diameter < MIN_DIAMETER:
+            print 'not counting (low size): ', particle_index
+        else:
+            particle_diameters.append(p_diameter)
 
-    print 'final number: ', len(particle_diameters)
-    print 'previous: ', count
+    print 'previous labels: ', len(labels)
+    labels = np.delete(labels, remove_index, 0)
+    print 'final labels: ', len(labels)
+
+    print 'previous number Ps: ', count
     count = len(particle_diameters)
+    print 'final number Ps: ', count
+
+    return count, labels, particle_diameters
+
+
+def treat_image_ImageJ(image_path, pixel_size):
+    """Function to count particles from images treated like this in ImageJ:
+        1. Make binary
+        2. Gaussian blur
+        3. Invert
+    """
+    imagea = Image.open(image_path)
+
+    original_gray = (np.asarray(imagea, dtype=float))
+    blurred = ndi.gaussian_filter(original_gray, BLURRING)
+    difference = original_gray - (MULTIPLIER * blurred)
+    threshold = original_gray >= threshold_otsu(original_gray)
+    imagetolabel = ((difference > threshold) * 255).astype('uint8')
+
+    local_maxi = peak_local_max(imagetolabel, indices=False,
+                                 footprint=np.ones([21, 21]),
+                                 labels=threshold)
+    labels, count = ndi.label(local_maxi)
+
+    remove_index = []
+    particle_diameters = []
+    for particle_index in range(count):
+        num_pixels = (labels == particle_index).sum()
+        print 'num_pixels: ', num_pixels
+        area = num_pixels * pixel_size
+        p_diameter = 2 * np.sqrt(area / np.pi)
+        print 'diameter: ', p_diameter
+        if p_diameter > MAX_DIAMETER:
+            print 'not counting (high size): ', particle_index
+            remove_index.append(particle_index)
+        elif p_diameter < MIN_DIAMETER:
+            print 'not counting (low size): ', particle_index
+        else:
+            particle_diameters.append(p_diameter)
+
+    print 'previous labels: ', len(labels)
+    labels = np.delete(labels, remove_index, 0)
+    print 'final labels: ', len(labels)
+
+    print 'previous number Ps: ', count
+    count = len(particle_diameters)
+    print 'final number Ps: ', count
 
     return count, labels, particle_diameters
 
@@ -109,6 +154,7 @@ def create_histogram_plot(histogram_particle_diameters):
     plt.ylabel("Frequency (%)")
 
     plt.tight_layout()
+    #plt.savefig(HISTOGRAM_FILENAME)
 
     pp.savefig()
     pp.close()
@@ -134,8 +180,10 @@ def calculate_median(histogram_particle_diameters):
 
 if __name__ == '__main__':
     histogram_particle_diameters = []
-    #num_particles, labeled_image, particle_diameters = None, None, None
-    num_particles, labeled_image, particle_diameters = treat_image(FILEPATH, PIXEL_AREA)
+    if imageAuto:
+        num_particles, labeled_image, particle_diameters = treat_image_auto(FILEPATH, PIXEL_AREA)
+    else:
+        num_particles, labeled_image, particle_diameters = treat_image_ImageJ(FILEPATH, PIXEL_AREA)
 
     histogram_particle_diameters.extend(particle_diameters)
 
