@@ -9,9 +9,8 @@ import os
 from PIL import Image
 
 SEGMENTFILENAME = 'segmented.pdf'
-FILEPATH = os.path.abspath('example2.tif')
-SEM_SCALE = 0.005  # um per pixel
-SEM_SCALE = 0.0227794
+FILEPATH = os.path.abspath('example1.tif')
+SEM_SCALE = 0.0227794 # um per pixel
 PIXEL_AREA = SEM_SCALE ** 2
 HISTOGRAM_FILENAME = 'histogram.pdf'
 histogram_path = 'size_distribution'
@@ -19,13 +18,16 @@ histogram_title = 'Histogram'
 histogram_width = 4
 histogram_height = 4
 histogram_binwidth = 0.025
-histogram_xlimmax = 0.5
-MULTIPLIER = 3.2
-MAX_DIAMETER = 0.6     #um
+histogram_xlimmax = 1
+#Play with MULTIPLIER to increase sensitivity
+MULTIPLIER = 1
+# MAX and MIN_DIAMETER are important to avoid small and big features
+MAX_DIAMETER = 1     #um
 MIN_DIAMETER = 0.03    #um
 BLURRING = 30
 imageAuto = True
 
+# To count particles only in a specific area of the image
 imageArea = False
 #(0,0) coordinates is the left-upper corner
 #left X point
@@ -61,25 +63,25 @@ def treat_image_auto():
     particle_diameters = []
     for particle_index in range(count):
         num_pixels = (labels == particle_index).sum()
-        print 'num_pixels: ', num_pixels
+        print ('num_pixels: ', num_pixels)
         area = num_pixels * PIXEL_AREA
         p_diameter = 2 * np.sqrt(area / np.pi)
-        print 'diameter: ', p_diameter
+        print ('diameter: ', p_diameter)
         if p_diameter > MAX_DIAMETER:
-            print 'not counting (high size): ', particle_index
+            print ('not counting (high size): ', particle_index)
             remove_index.append(particle_index)
         elif p_diameter < MIN_DIAMETER:
-            print 'not counting (low size): ', particle_index
+            print ('not counting (low size): ', particle_index)
         else:
             particle_diameters.append(p_diameter)
 
-    print 'previous labels: ', len(labels)
+    print ('previous labels: ', len(labels))
     labels = np.delete(labels, remove_index, 0)
-    print 'final labels: ', len(labels)
+    print ('final labels: ', len(labels))
 
-    print 'previous number Ps: ', count
+    print ('previous number Ps: ', count)
     count = len(particle_diameters)
-    print 'final number Ps: ', count
+    print ('final number Ps: ', count)
 
     return count, labels, particle_diameters
 
@@ -109,25 +111,25 @@ def treat_image_ImageJ():
     particle_diameters = []
     for particle_index in range(count):
         num_pixels = (labels == particle_index).sum()
-        print 'num_pixels: ', num_pixels
+        print ('num_pixels: ', num_pixels)
         area = num_pixels * PIXEL_AREA
         p_diameter = 2 * np.sqrt(area / np.pi)
-        print 'diameter: ', p_diameter
+        print ('diameter: ', p_diameter)
         if p_diameter > MAX_DIAMETER:
-            print 'not counting (high size): ', particle_index
+            print ('not counting (high size): ', particle_index)
             remove_index.append(particle_index)
         elif p_diameter < MIN_DIAMETER:
-            print 'not counting (low size): ', particle_index
+            print ('not counting (low size): ', particle_index)
         else:
             particle_diameters.append(p_diameter)
 
-    print 'previous labels: ', len(labels)
+    print ('previous labels: ', len(labels))
     labels = np.delete(labels, remove_index, 0)
-    print 'final labels: ', len(labels)
+    print ('final labels: ', len(labels))
 
-    print 'previous number Ps: ', count
+    print ('previous number Ps: ', count)
     count = len(particle_diameters)
-    print 'final number Ps: ', count
+    print ('final number Ps: ', count)
 
     return count, labels, particle_diameters
 
@@ -193,9 +195,9 @@ def calculate_median(histogram_particle_diameters):
     desv_size = np.std(histogram_particle_diameters)
     #NOTE: Area calculated for spherical particles
     mean_area = 3.141592 * (mean_size / 2) ** 2
-    print '%.3g um median size' % median_size
-    print '%.3g +- %.3g um mean size' % (mean_size, desv_size)
-    print '%.3g um mean area' % mean_area
+    print ('%.3g um median size' % median_size)
+    print ('%.3g +- %.3g um mean size' % (mean_size, desv_size))
+    print ('%.3g um mean area' % mean_area)
 
 #Calculate the nanoparticle density in the full image
 def calculate_density(numparticles):
@@ -205,15 +207,15 @@ def calculate_density(numparticles):
         pixelwidth, pixelheight = imagea.size
 
     totalpixelarea = pixelwidth*pixelheight
-    print 'pixelarea: ', totalpixelarea
+    print ('pixelarea: ', totalpixelarea)
     totalareaum = totalpixelarea*PIXEL_AREA
     totalareacm = totalareaum/1e8
     densityum = numparticles/totalareaum
     densitycm = numparticles/totalareacm
 
-    print 'numparticles: ', numparticles
-    print '%.4g particles/um2' % densityum
-    print '%.4g particles/cm2' % densitycm
+    print ('numparticles: ', numparticles)
+    print ('%.4g particles/um2' % densityum)
+    print ('%.4g particles/cm2' % densitycm)
 
 
 if __name__ == '__main__':
